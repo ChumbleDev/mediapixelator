@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixelate Video and Audio</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            padding: 20px;
+        }
+
+        video {
+            display: none;
+        }
+
+        canvas {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+        }
+
+        audio {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Pixelate Video and Audio</h1>
+    
+    <video id="video" controls>
+        <source src="video.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+
+    <canvas id="canvas"></canvas>
+
+    <audio id="audio" controls>
+        <source src="audio.mp3" type="audio/mp3">
+        Your browser does not support the audio element.
+    </audio>
+
+    <script>
+        // Pixelate Video
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        video.addEventListener('play', () => {
+            const width = video.videoWidth;
+            const height = video.videoHeight;
+            canvas.width = width;
+            canvas.height = height;
+
+            const pixelate = () => {
+                if (!video.paused && !video.ended) {
+                    ctx.drawImage(video, 0, 0, width, height);
+                    const imageData = ctx.getImageData(0, 0, width, height);
+                    const pixels = 10; // Pixel size
+
+                    // Loop through every pixel
+                    for (let y = 0; y < height; y += pixels) {
+                        for (let x = 0; x < width; x += pixels) {
+                            const red = imageData.data[((y * width + x) * 4)];
+                            const green = imageData.data[((y * width + x) * 4) + 1];
+                            const blue = imageData.data[((y * width + x) * 4) + 2];
+
+                            ctx.fillStyle = `rgb(${red},${green},${blue})`;
+                            ctx.fillRect(x, y, pixels, pixels);
+                        }
+                    }
+                    requestAnimationFrame(pixelate);
+                }
+            };
+
+            pixelate();
+        });
+
+        // Simulate "Pixelate" Audio by adjusting playback rate
+        const audio = document.getElementById('audio');
+        audio.addEventListener('play', () => {
+            audio.playbackRate = 0.5; // Lower playback rate to simulate low-quality effect
+        });
+    </script>
+</body>
+</html>
