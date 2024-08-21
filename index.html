@@ -14,75 +14,177 @@
             padding: 20px;
         }
 
-        video {
-            display: none;
-        }
-
         canvas {
             margin-top: 20px;
             border: 1px solid #ccc;
         }
 
-        audio {
+        .controls {
             margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        input[type="range"] {
+            width: 300px;
+            margin-top: 10px;
+        }
+
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
     <h1>Pixelate Video and Audio</h1>
-    
-    <video id="video" controls>
-        <source src="video.mp4" type="video/mp4">
-        Your browser does not support the video tag.
-    </video>
+
+    <!-- Video Upload -->
+    <div class="controls">
+        <label for="videoUploader">Upload Video:</label>
+        <input type="file" id="videoUploader" accept="video/*">
+        <input type="range" id="videoPixelation" min="1" max="100" value="10">
+        <label for="videoPixelation">Pixelate Video</label>
+    </div>
 
     <canvas id="canvas"></canvas>
 
-    <audio id="audio" controls>
-        <source src="audio.mp3" type="audio/mp3">
-        Your browser does not support the audio element.
-    </audio>
+    <!-- Audio Upload -->
+    <div class="controls">
+        <label for="audioUploader">Upload Audio:</label>
+        <input type="file" id="audioUploader" accept="audio/*">
+        <input type="range" id="audioPixelation" min="1" max="100" value="10">
+        <label for="audioPixelation">Pixelate Audio</label>
+    </div>
+
+    <audio id="audio" controls></audio>
+
+    <button id="downloadVideo">Download Pixelated Video</button>
+    <button id="downloadAudio">Download Pixelated Audio</button>
 
     <script>
-        // Pixelate Video
-        const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
+        let videoElement;
+        let mediaRecorder;
+        let recordedChunks = [];
+        let videoPixelationLevel = 10;
+        let audioElement;
+        let audioPixelationLevel = 10;
 
-        video.addEventListener('play', () => {
-            const width = video.videoWidth;
-            const height = video.videoHeight;
-            canvas.width = width;
-            canvas.height = height;
+        // Video Uploader and Pixelation
+        document.getElementById('videoUploader').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                videoElement = document.createElement('video');
+                videoElement.src = url;
 
-            const pixelate = () => {
-                if (!video.paused && !video.ended) {
-                    ctx.drawImage(video, 0, 0, width, height);
-                    const imageData = ctx.getImageData(0, 0, width, height);
-                    const pixels = 10; // Pixel size
+                videoElement.addEventListener('loadeddata', () => {
+                    canvas.width = videoElement.videoWidth;
+                    canvas.height = videoElement.videoHeight;
+                    startRecording();
+                    pixelateVideo();
+                });
 
-                    // Loop through every pixel
-                    for (let y = 0; y < height; y += pixels) {
-                        for (let x = 0; x < width; x += pixels) {
-                            const red = imageData.data[((y * width + x) * 4)];
-                            const green = imageData.data[((y * width + x) * 4) + 1];
-                            const blue = imageData.data[((y * width + x) * 4) + 2];
+                videoElement.play();
+            }
+        });
 
-                            ctx.fillStyle = `rgb(${red},${green},${blue})`;
-                            ctx.fillRect(x, y, pixels, pixels);
+        document.getElementById('videoPixelation').addEventListener('input', (e) => {
+            videoPixelationLevel = parseInt(e.target.value, 10);
+            pixelateVideo();
+        });
+
+        function pixelateVideo() {
+            if (videoElement) {
+                const width = videoElement.videoWidth;
+                const height = videoElement.videoHeight;
+
+                const pixelate = () => {
+                    if (!videoElement.paused && !videoElement.ended) {
+                        ctx.drawImage(videoElement, 0, 0, width, height);
+                        const imageData = ctx.getImageData(0, 0, width, height);
+                        const pixels = Math.floor(100 / videoPixelationLevel); // Adjust pixel size based on slider
+
+                        for (let y = 0; y < height; y += pixels) {
+                            for (let x = 0; x < width; x += pixels) {
+                                const red = imageData.data[((y * width + x) * 4)];
+                                const green = imageData.data[((y * width + x) * 4) + 1];
+                                const blue = imageData.data[((y * width + x) * 4) + 2];
+
+                                ctx.fillStyle = `rgb(${red},${green},${blue})`;
+                                ctx.fillRect(x, y, pixels, pixels);
+                            }
                         }
+                        requestAnimationFrame(pixelate);
                     }
-                    requestAnimationFrame(pixelate);
+                };
+                pixelate();
+            }
+        }
+
+        function startRecording() {
+            const stream = canvas.captureStream();
+            mediaRecorder = new MediaRecorder(stream, {
+                mimeType: 'video/webm; codecs=vp8'
+            });
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
                 }
             };
 
-            pixelate();
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, {
+                    type: 'video/webm'
+                });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'pixelated-video.webm';
+                link.click();
+            };
+
+            mediaRecorder.start();
+        }
+
+        document.getElementById('downloadVideo').addEventListener('click', () => {
+            mediaRecorder.stop();
         });
 
-        // Simulate "Pixelate" Audio by adjusting playback rate
-        const audio = document.getElementById('audio');
-        audio.addEventListener('play', () => {
-            audio.playbackRate = 0.5; // Lower playback rate to simulate low-quality effect
+        // Audio Uploader and Pixelation
+        document.getElementById('audioUploader').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                audioElement = document.getElementById('audio');
+                audioElement.src = url;
+                audioElement.play();
+                pixelateAudio();
+            }
+        });
+
+        document.getElementById('audioPixelation').addEventListener('input', (e) => {
+            audioPixelationLevel = parseInt(e.target.value, 10);
+            pixelateAudio();
+        });
+
+        function pixelateAudio() {
+            if (audioElement) {
+                audioElement.playbackRate = audioPixelationLevel / 100; // Simulate "pixelation" by altering playback rate
+            }
+        }
+
+        document.getElementById('downloadAudio').addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'pixelated-audio.mp3';
+            link.href = audioElement.src; // Just downloads the original file
+            link.click();
         });
     </script>
 </body>
